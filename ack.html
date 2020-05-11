@@ -1,0 +1,328 @@
+<!--
+  Copyright 2020 Tyler Eastman.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/x-red" data-help-name="ack-req">
+    <p>Starts tracking a message for acknowledgement.</p>
+
+    <p>Any message that enters the `ack req` node will be stored internally in a queue with a specified timeout (Time to live), and is then passed on through the `msg` line.  
+       If the message does not reach an `ack` node before the timeout passes, the `ack req` node will emit the message on it's `timeout` line, and the message will be 
+       removed from the queue.</p>
+    <p>If the server is reboot while the `ack req` node has messages stored, they will be emitted on the `boot` line at startup.  
+       If those messages have also timed out they will be emitted on the `timeout` line as well.</p>
+
+    <p>To set this node up, you must select which `ack` nodes it is paired with.  Only paired `ack` nodes will remove messages from it's timeout queue.</p>
+
+    <h3>Options</h3>
+    <dl class="message-properties">
+        <dt>Time to live <span class="property-type">num | msg | flow | global | jsonata | env</span></dt>
+        <dd>A number representing the amount of time the message has to reach an `ack` node.</dd>
+        <dt>Time units <span class="property-type">str | msg | flow | global | jsonata | env</span></dt>
+        <dd>The units in which the time to live is represented. Must be one of ["Milliseconds", "Seconds", "Minutes", "Hours"]</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>msg</dt>
+        <dd>A passthrough for any messages that enter the node.</dd>
+        <dt>boot</dt>
+        <dd>Outputs any messages that were in the queue when the server shutdown.</dd>
+        <dt>timeout</dt>
+        <dd>Outputs a copy of any message that is not acknowledged before the timeout is reached.</dd>
+    </dl>
+</script>
+
+<script type="text/x-red" data-help-name="ack">
+    <p>Acknowledges a message.  The message must have passed through an `ack req` node previously or this node will have no effect.</p>
+
+    <p>Any message that enters the `ack req` node will be stored internally in a queue with a specified timeout (Time to live), and is then passed on through the `msg` line.  
+       If the message does not reach an `ack` node before the timeout passes, the `ack req` node will emit the message on it's `timeout` line, and the message will be 
+       removed from the queue.</p>
+    <p>If the server is reboot while the `ack req` node has messages stored, they will be emitted on the `boot` line at startup.  
+       If those messages have also timed out they will be emitted on the `timeout` line as well.</p>
+
+    <p>To set this node up, you must select which `ack req` nodes it is paired with.  Only paired `ack req` nodes will have messages removed from it's timeout queue.</p>
+</script>
+
+<script type="text/x-red" data-template-name="ack-req">
+    <div class="form-row">
+        <label for="node-input-nodeName"><i class="fa fa-tag"></i> <span>Node Name</span></label>
+        <input type="text" id="node-input-nodeName" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-ttl"><i class="fa fa-clock-o"></i>Time to live</label>
+        <input type="hidden" id="node-input-ttlType" />
+        <input style="width: 70%" type="text" id="node-input-ttl" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-units">Time units</label>
+        <input type="hidden" id="node-input-unitsType" />
+        <input style="width: 70%" type="text" id="node-input-units" />
+    </div>
+    <div class="form-row node-input-link-row"></div>
+</script>
+
+<script type="text/x-red" data-template-name="ack">
+    <div class="form-row">
+        <label for="node-input-nodeName"><i class="fa fa-tag"></i> <span>Node Name</span></label>
+        <input type="text" id="node-input-nodeName" />
+    </div>
+    <div class="form-row node-input-link-row"></div>
+</script>
+
+<script type="text/javascript">
+    (function () {
+        var treeList;
+
+        function onEditPrepare(node, linkTypes) {
+            node.oldLinks = {};
+            if (!node.links)
+                node.links = {};
+
+            linkTypes.forEach(function (type) {
+                node.oldLinks[type] = [];
+                if (!node.links[type])
+                    node.links[type] = [];
+            });
+
+            var activeSubflow = RED.nodes.subflow(node.z);
+
+            treeList = $("<div>")
+                .css({ width: "100%", height: "100%" })
+                .appendTo(".node-input-link-row")
+                .treeList({})
+                .on('treelistitemmouseover', function (e, item) {
+                    if (item.node) {
+                        item.node.highlighted = true;
+                        item.node.dirty = true;
+                        RED.view.redraw();
+                    }
+                })
+                .on('treelistitemmouseout', function (e, item) {
+                    if (item.node) {
+                        item.node.highlighted = false;
+                        item.node.dirty = true;
+                        RED.view.redraw();
+                    }
+                });
+
+
+            var categories = [];
+
+            linkTypes.forEach(function (type) {
+                var category = {
+                    id: type,
+                    class: 'red-ui-palette-header',
+                    label: type,
+                    type: type,
+                    expanded: true,
+                    children: []
+                }
+
+                RED.nodes.filterNodes({ type: type }).forEach(function (n) {
+                    if (n.z !== node.z)
+                        return;
+
+                    var isChecked = (node.links[type].indexOf(n.id) !== -1) || (n.links && n.links[node.type] || []).indexOf(node.id) !== -1;
+                    if (isChecked)
+                        node.oldLinks[type].push(n.id);
+
+                    category.children.push({
+                        id: n.id,
+                        node: n,
+                        label: n.nodeName || n.id,
+                        selected: isChecked
+                    })
+                });
+
+                categories.push(category);
+            });
+
+            treeList.treeList('data', categories);
+
+            setTimeout(function () {
+                treeList.treeList('show', node.z);
+            }, 100);
+        }
+
+        function resizeNodeList() {
+            var rows = $("#dialog-form>div:not(.node-input-link-row)");
+            var height = $("#dialog-form").height();
+            for (var i = 0; i < rows.length; i++) {
+                height -= $(rows[i]).outerHeight(true);
+            }
+            var editorRow = $("#dialog-form>div.node-input-link-row");
+            height -= (parseInt(editorRow.css("marginTop")) + parseInt(editorRow.css("marginBottom")));
+            $(".node-input-link-row").css("height", height + "px");
+        }
+
+        function onEditSave(node) {
+            var categories = treeList.treeList('data');
+
+            node.links = {};
+
+            categories.forEach(function (category) {
+                node.links[category.type] = [];
+                category.children.forEach(function (n) {
+                    if (n.selected)
+                        node.links[category.type].push(n.id);
+                })
+            })
+
+            var linkTypes = [];
+
+            Object.keys(node.oldLinks).map(function (key, index) {
+                node.oldLinks[key].sort();
+                if (linkTypes.indexOf(key) === -1)
+                    linkTypes.push(key);
+            });
+
+            Object.keys(node.links).map(function (key, index) {
+                node.links[key].sort();
+                if (linkTypes.indexOf(key) === -1)
+                    linkTypes.push(key);
+            });
+
+            linkTypes.forEach(function (type) {
+                var nodeMap = {};
+                var length = Math.max(node.oldLinks[type].length, node.links[type].length);
+                for (var i = 0; i < length; i++) {
+                    if (i < node.oldLinks[type].length) {
+                        nodeMap[node.oldLinks[type][i]] = nodeMap[node.oldLinks[type][i]] || {};
+                        nodeMap[node.oldLinks[type][i]].old = true;
+                    }
+                    if (i < node.links[type].length) {
+                        nodeMap[node.links[type][i]] = nodeMap[node.links[type][i]] || {};
+                        nodeMap[node.links[type][i]].new = true;
+                    }
+                }
+
+                var n;
+                for (var id in nodeMap) {
+                    if (nodeMap.hasOwnProperty(id)) {
+                        n = RED.nodes.node(id);
+                        if (n) {
+                            if (nodeMap[id].old && !nodeMap[id].new) {
+                                // Removed id
+                                if (n.links[node.type] === undefined)
+                                    n.links[node.type] = [];
+                                i = n.links[node.type].indexOf(node.id);
+                                if (i > -1) {
+                                    n.links[node.type].splice(i, 1);
+                                }
+                            } else if (!nodeMap[id].old && nodeMap[id].new) {
+                                // Added id
+                                if (n.links[node.type] === undefined)
+                                    n.links[node.type] = [];
+                                i = n.links[node.type].indexOf(id);
+                                if (i === -1) {
+                                    n.links[node.type].push(node.id);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function onAdd() {
+            if (!this.links)
+                return;
+
+            Object.keys(this.links).map(function (key, index) {
+                var links = this.links[key];
+
+                for (var i = 0; i < links.length; i++) {
+                    var n = RED.nodes.node(links[i]);
+                    if (n && n.links && n.links[key] && n.links[key].indexOf(this.id) === -1) {
+                        n.links[key].push(this.id);
+                    }
+                }
+            });
+        }
+
+        RED.nodes.registerType('ack-req', {
+            category: 'common',
+            color: "#87D8CF",
+            defaults: {
+                nodeName: { value: "" },
+                ttl: { value: "", validate: RED.validators.typedInput("ttlType"), required: true },
+                ttlType: { value: "num" },
+                units: { value: "seconds", validate: RED.validators.typedInput("unitsType"), required: true },
+                unitsType: { value: "select" },
+                links: { value: {} }
+            },
+            inputs: 1,
+            outputs: 3,
+            icon: "baseline_library_add_white_18dp.png",
+            outputLabels: function(index){
+                switch(index) {
+                    case 0: return "msg"; break;
+                    case 1: return "boot"; break;
+                    case 2: return "timeout"; break;
+                }
+            },
+            paletteLabel: "ack start",
+            label: function () {
+                return this.nodeName || "ack start";
+            },
+            oneditprepare: function () {
+                $("#node-input-ttl").typedInput({
+                    default: 'num',
+                    typeField: $("#node-input-ttlType"),
+                    types: ['msg', 'flow', 'global', 'num', 'jsonata', 'env']
+                });
+
+                var ttlUnitsOptions = { value: "select", label: "=", options: ["Milliseconds", "Seconds", "Minutes", "Hours"] };
+                $("#node-input-units").typedInput({
+                    default: 'select',
+                    typeField: $("#node-input-unitsType"),
+                    types: [ttlUnitsOptions, 'msg', 'flow', 'global', 'str', 'jsonata', 'env']
+                });
+
+                onEditPrepare(this, ["ack"]);
+            },
+            oneditsave: function () {
+                onEditSave(this);
+            },
+            onadd: onAdd,
+            oneditresize: resizeNodeList
+        });
+
+        RED.nodes.registerType('ack', {
+            category: 'common',
+            color: "#87D8CF",
+            defaults: {
+                nodeName: { value: "" },
+                links: { value: {} }
+            },
+            align: "right",
+            inputs: 1,
+            outputs: 0,
+            icon: "baseline_library_add_check_white_18dp.png",
+            label: function () {
+                return this.nodeName || "ack clear";
+            },
+            oneditprepare: function () {
+                onEditPrepare(this, ["ack-req"]);
+            },
+            oneditsave: function () {
+                onEditSave(this);
+            },
+            onadd: onAdd,
+            oneditresize: resizeNodeList
+        });
+    })();
+</script>
