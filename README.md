@@ -21,3 +21,7 @@ Acknowledgements
 The node-red-contrib-ack uses the following open source
 
 - [material icons](https://google.github.io/material-design-icons/)
+
+Node link concept sourced from
+
+- [node-red link node](https://github.com/node-red/node-red/blob/master/packages/node_modules/%40node-red/nodes/core/common/60-link.html)
