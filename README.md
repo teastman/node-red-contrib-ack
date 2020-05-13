@@ -10,10 +10,9 @@ Run the following command in the root directory of your Node-RED install
 
 Usage
 -------
+Any message that enters the `ack start` node will be stored internally in a queue with a specified timeout (Time to live), and is then passed on through the `msg` line.  If the message does not reach an `ack clear` node before the timeout passes, the `ack start` node will emit the message on it's `timeout` line, and the message will be removed from the queue.
 
-Any message that enters the `ack req` node will be stored internally with a specified timeout, and passed on through the `msg` line.  If the message does not reach an `ack` node before the timeout passes, the `ack req` node will emit the message on it's `timeout` line.
-
-If the server is reboot while the `ack req` node has messages stored, they will be emitted on the `boot` line at startup.  If those messages have also timed out they will be emitted on the `timeout` line as well.
+If the persistent option is set and the server is reboot or redeployed while the `ack start` node has messages stored, they will be emitted on the `boot` line at startup. If those messages have also timed out they will be emitted on the `timeout` line as well.
 
 Acknowledgements
 ----------------
