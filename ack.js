@@ -22,13 +22,17 @@ module.exports = function (RED) {
     "use strict";
 
     // Clean up any orphaned folders and files.  This can happen if the flow file is modified while the server is down.
-    RED.events.on("nodes-started", function (event) {
+    RED.events.on("flows:started", function (event) {
         // Get a list of ack-start nodes.
         const existingNodes = [];
         RED.nodes.eachNode(function (node) {
             if (node.type === "ack-start")
                 existingNodes.push(node.id.replace(".", ""));
         });
+
+        if (!fs.existsSync(FOLDER_NAME)){
+            fs.mkdirSync(FOLDER_NAME, { recursive: true });
+        }
 
         // Get list of ack_msg_cache folders
         var directories = fs.readdirSync(FOLDER_NAME, { withFileTypes: true })
