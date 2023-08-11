@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-ack",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A Node-RED node for acknowledging message paths.",
   "repository": {
     "type": "git",
@@ -30,5 +30,8 @@
       "name": "Tyler Eastman",
       "email": "tyler.eastman@gmail.com"
     }
-  ]
+  ],
+  "dependencies": {
+    "fs-extra": "^11.1.1"
+  }
 }

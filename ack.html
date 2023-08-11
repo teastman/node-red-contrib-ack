@@ -31,6 +31,12 @@
         <dd>A number representing the amount of time the message has to reach an `ack clear` node.</dd>
         <dt>Time units <span class="property-type">str | msg | flow | global | jsonata | env</span></dt>
         <dd>The units in which the time to live is represented. Must be one of ["Milliseconds", "Seconds", "Minutes", "Hours"]</dd>
+        <dt>ID Property <span class="property-type">string</span></dt>
+        <dd>A unique property on the msg object to act as a key to determine if a message should be cleared or not.
+            Defaults to the internal _msgid if empty.  If the message doesn't have the specified property it will fall back to _msgid.
+            note: using a split - join will modify the _msgid and so a custom property should be used in that case.
+            note: the value of the property on the msg cannot start with a '.', '/', '\'
+        </dd>
         <dt>Persistent <span class="property-type">boolean</span></dt>
         <dd>Determines if the ack-start will temporarily store messages to disk.  This will add the boot output, if the server is restarted all 
             stored messages will be replayed on the boot output.  If this option is not selected, no boot output is available and messages are 
@@ -77,8 +83,13 @@
         <input style="width: 70%" type="text" id="node-input-units" />
     </div>
     <div class="form-row">
+        <label for="node-input-key">ID Property</label>
+        <input type="hidden" id="node-input-keyType" />
+        <input style="width: 70%" type="text" id="node-input-key" />
+    </div>
+    <div class="form-row">
         <label for="node-input-persist">Persistent</span></label>
-        <input type="checkbox" id="node-input-persist">
+        <input type="checkbox" id="node-input-persist" />
     </div>
     <div class="form-row node-input-link-row"></div>
 </script>
@@ -237,6 +248,8 @@
                 ttlType: { value: "num" },
                 units: { value: "seconds", validate: RED.validators.typedInput("unitsType"), required: true },
                 unitsType: { value: "select" },
+                key: { value: "", validate: RED.validators.typedInput("keyType"), required: false },
+                keyType: { value: "str" },
                 persist: { value: false },
                 outputs: { value: 2 },
                 links: { value: [] }
@@ -266,6 +279,12 @@
                     default: 'select',
                     typeField: $("#node-input-unitsType"),
                     types: [ttlUnitsOptions, 'msg', 'flow', 'global', 'str', 'jsonata', 'env']
+                });
+
+                $("#node-input-key").typedInput({
+                    default: 'str',
+                    typeField: $("#node-input-keyType"),
+                    types: ['msg', 'flow', 'global', 'str', 'jsonata', 'env']
                 });
 
                 var checkbox = $("#node-input-persist");
