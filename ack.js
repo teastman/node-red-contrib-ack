@@ -37,6 +37,7 @@ module.exports = function (RED) {
         });
 
         // Get list of ack_msg_cache node folders
+        fs.ensureDirSync(FOLDER_NAME);
         var directories = fs.readdirSync(FOLDER_NAME, { withFileTypes: true })
             .filter(dirent => dirent.isDirectory())
             .map(dirent => dirent.name);
