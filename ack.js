@@ -155,7 +155,7 @@ module.exports = function (RED) {
 
             // ttl is required.
             if (isNaN(ttl)) {
-                done("TTL must be a number.");
+                return done("TTL must be a number.");
             }
 
             // convert ttl to milliseconds.
@@ -192,9 +192,6 @@ module.exports = function (RED) {
             // If there is a ttl, schedule a timeout.
             if (ttl > 0) {
                 const timeout_msg = Object.assign({}, msg);
-                // function remove_timer() {
-                //     delete node.timers[id];
-                // };
                 node.timers[id] = {
                     timer: timers.setTimeout((send, done, ) => {
                         removePersistentMsg(id);
